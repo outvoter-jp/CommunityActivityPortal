@@ -2,10 +2,48 @@
   "schema_version": "0.1",
   "updated": "2026-10-20",
   "sources": [
-    {"id": "warabi-city", "name": "蕨市 新着更新情報", "url": "https://www.city.warabi.saitama.jp/newslist.html", "region": "蕨市", "kind": "自治体"},
-    {"id": "kawaguchi-city", "name": "川口市 トップページ（イベント・募集）", "url": "https://www.city.kawaguchi.lg.jp/", "region": "川口市", "kind": "自治体"},
-    {"id": "koeki-info", "name": "内閣府 公益法人information 新着", "url": "https://www.koeki-info.go.jp/", "region": "全国", "kind": "国"},
-    {"id": "kohokyo", "name": "公益法人協会 新着情報", "url": "https://www.kohokyo.or.jp/", "region": "全国", "kind": "民間団体"}
+    {
+      "id": "warabi-city",
+      "name": "蕨市 新着更新情報",
+      "url": "https://www.city.warabi.saitama.jp/newslist.html",
+      "region": "蕨市",
+      "kind": "自治体"
+    },
+    {
+      "id": "kawaguchi-city",
+      "name": "川口市 トップページ（イベント・募集）",
+      "url": "https://www.city.kawaguchi.lg.jp/",
+      "region": "川口市",
+      "kind": "自治体"
+    },
+    {
+      "id": "koeki-info",
+      "name": "内閣府 公益法人information 新着",
+      "url": "https://www.koeki-info.go.jp/",
+      "region": "全国",
+      "kind": "国"
+    },
+    {
+      "id": "kohokyo",
+      "name": "公益法人協会 新着情報",
+      "url": "https://www.kohokyo.or.jp/",
+      "region": "全国",
+      "kind": "民間団体"
+    },
+    {
+      "id": "kawaguchi-koho",
+      "name": "広報かわぐち（PDF）",
+      "url": "https://www.city.kawaguchi.lg.jp/soshiki/01010/020/2/2480.html",
+      "region": "川口市",
+      "kind": "自治体広報誌",
+      "note": "毎月1日ごろ発行。号ごとのページに記事別PDFあり。PDFは文字抽出で段組みが崩れるため、日時・電話番号は確認が必要"
+    }
   ],
-  "candidates_not_yet_checked": ["TKC法令ニュース", "国税庁 法人税関係の新着", "法務省 一般社団法人関係", "埼玉県 NPO・地域活動関係", "蕨市・川口市 社会福祉協議会"]
+  "candidates_not_yet_checked": [
+    "TKC法令ニュース",
+    "国税庁 法人税関係の新着",
+    "法務省 一般社団法人関係",
+    "埼玉県 NPO・地域活動関係",
+    "蕨市・川口市 社会福祉協議会"
+  ]
 }

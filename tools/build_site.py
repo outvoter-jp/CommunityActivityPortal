@@ -120,13 +120,16 @@ def detail(i, by_id, base):
     rel = "../"
     rows = [("区分", i.get("section")), ("状況", i.get("status")), ("地域", i.get("region")), ("分類", i.get("category")),
             ("開催日", fmt_dates(i)), ("申込締切", i.get("deadline")), ("元ページの更新日", i.get("updated")),
-            ("本文の確認日", i.get("checked_at"))]
+            ("本文の確認日", i.get("checked_at")),
+            ("掲載誌", f'{i["publication"]} {i["page"]}ページ' if i.get("publication") else None),
+            ("定員", f'{i["capacity"]}人' if i.get("capacity") else None),
+            ("人気の手がかり", "、".join(i.get("demand_signals", [])))]
     facts = "".join(f"<dt>{k}</dt><dd>{e(str(v))}</dd>" for k, v in rows if v)
     related = [by_id[r] for r in i.get("related", []) if r in by_id]
     rel_html = (f'<h2>関連する情報</h2><ul class="items">{"".join(card(r, rel) for r in related)}</ul>' if related else "")
     body = (f'<div class="wrap">{header(rel)}<article><h1 class="site-name" style="font-size:1.4rem">{e(i["title"])}</h1>'
             f'<p class="abstract">{e(i.get("abstract", ""))}</p><dl class="facts">{facts}</dl>'
-            f'<p><a href="{e(i["url"])}" target="_blank" rel="noopener">元のページを開く（正式な情報はこちら）</a></p>'
+            f'<p><a href="{e(i["url"])}" target="_blank" rel="noopener">{"広報誌の該当ページ（PDF）を開く" if i.get("publication") else "元のページを開く"}（正式な情報はこちら）</a></p>'
             f'<p class="note">この要約は元ページを読んで作成したものです。日時や申込方法は必ず元のページでご確認ください。'
             f'機械で読む場合は <a href="{rel}api/v1/items/{i["id"]}.json"><code>api/v1/items/{i["id"]}.json</code></a></p>'
             f'</article>{rel_html}</div>')
