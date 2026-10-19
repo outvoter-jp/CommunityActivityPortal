@@ -37,6 +37,14 @@
       "region": "川口市",
       "kind": "自治体広報誌",
       "note": "毎月1日ごろ発行。号ごとのページに記事別PDFあり。PDFは文字抽出で段組みが崩れるため、日時・電話番号は確認が必要"
+    },
+    {
+      "id": "warabi-koho",
+      "name": "広報蕨（PDF）",
+      "url": "https://www.city.warabi.saitama.jp/shisei/kouhou/kouhouwarabi/1012543.html",
+      "region": "蕨市",
+      "kind": "自治体広報誌",
+      "note": "毎月1日ごろ発行。本紙とお知らせ版の2つのPDF（記事別PDFはない）。音声版「声の広報紙」あり。PDFの文字抽出は崩れが大きい"
     }
   ],
   "candidates_not_yet_checked": [

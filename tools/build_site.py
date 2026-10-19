@@ -121,7 +121,7 @@ def detail(i, by_id, base):
     rows = [("区分", i.get("section")), ("状況", i.get("status")), ("地域", i.get("region")), ("分類", i.get("category")),
             ("開催日", fmt_dates(i)), ("申込締切", i.get("deadline")), ("元ページの更新日", i.get("updated")),
             ("本文の確認日", i.get("checked_at")),
-            ("掲載誌", f'{i["publication"]} {i["page"]}ページ' if i.get("publication") else None),
+            ("掲載誌", (f'{i["publication"]} {i["page"]}ページ' if i.get("page") else i["publication"]) if i.get("publication") else None),
             ("定員", f'{i["capacity"]}人' if i.get("capacity") else None),
             ("人気の手がかり", "、".join(i.get("demand_signals", [])))]
     facts = "".join(f"<dt>{k}</dt><dd>{e(str(v))}</dd>" for k, v in rows if v)
