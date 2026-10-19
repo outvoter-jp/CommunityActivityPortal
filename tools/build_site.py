@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE_NAME = "わらび・かわぐち 地域活動ナビ（試作）"
+SITE_NAME = "わたしらしく、地域とつながる。"
 SECTIONS = {"地域活動者向け": "community", "法人・団体づくり": "organizing"}
 REGIONS = {"蕨市": "warabi", "川口市": "kawaguchi", "埼玉県": "saitama", "全国": "national"}
 STATUS_ORDER = {"受付中": 0, "受付前": 1, "申込不要": 2, "お知らせ": 3, "受付終了": 4}
@@ -80,7 +80,7 @@ def page(title, body, rel="", extra_head="", fragment=False):
 def header(rel):
     links = "".join(f'<a href="{rel}index.html#{slug}">{e(name)}</a>' for name, slug in SECTIONS.items())
     return (f'<header class="site"><a class="site-name" href="{rel}index.html">{e(SITE_NAME)}</a>'
-            f'<p class="lead">蕨市・川口市の地域活動と、法人・団体づくりの情報を毎朝確認して載せています。</p>'
+            f'<p class="lead">【試作版】蕨市・川口市の地域活動と、法人・団体づくりの情報を毎朝確認して載せています。</p>'
             f'<nav class="sections" aria-label="区分">{links}<a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
 
 
@@ -176,7 +176,7 @@ def build(out, base, preview):
         if rows:
             write(out / f"api/v1/regions/{slug}.json", dump({"region": name, "count": len(rows), "items": rows}))
 
-    llms = [f"# {SITE_NAME}", "", "> 蕨市・川口市の地域活動と、法人・団体づくりの情報。各件に本文を読んで書いた100字以内の要約、申込状況、開催日、出典URL、確認日を付けています。正式な情報は各件の出典URLを参照してください。", "",
+    llms = [f"# {SITE_NAME}", "", "> 試作版。蕨市・川口市の地域活動と、法人・団体づくりの情報。各件に本文を読んで書いた100字以内の要約、申込状況、開催日、出典URL、確認日を付けています。正式な情報は各件の出典URLを参照してください。", "",
             "## 機械で読む", "- [全件JSON](api/v1/items.json)", "- [地域活動者向け](api/v1/sections/community.json)",
             "- [法人・団体づくり](api/v1/sections/organizing.json)", "- [OpenAPI仕様](openapi.json)", "- [情報源](api/v1/sources.json)", "",
             "## 掲載中の情報"]
