@@ -1,0 +1,268 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "地域活動ポータル API（試作）",
+    "version": "0.2.0",
+    "description": "蕨市・川口市の地域活動と、法人・団体づくりの情報。各件に出典URL・更新日・確認状態を付ける。sponsored=true の件は有料掲載。"
+  },
+  "paths": {
+    "/v1/items": {
+      "get": {
+        "summary": "情報の検索",
+        "operationId": "searchItems",
+        "parameters": [
+          {
+            "name": "section",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "地域活動者向け",
+                "法人・団体づくり"
+              ]
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "蕨市"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "対象者タグ（退職者、高齢者、若者、外国人、子育て世代、地域団体、法人設立希望者、法人運営者）"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "受付中",
+                "受付前",
+                "受付終了",
+                "申込不要",
+                "お知らせ"
+              ]
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "題名と補足の部分一致"
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "full",
+                "summary"
+              ]
+            },
+            "description": "summary にすると id・題名・要約・状態・日程・URL だけを返す（AIが一覧から選ぶとき向け）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "一致した情報（更新日の新しい順）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Item"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/items/{id}": {
+      "get": {
+        "summary": "1件の詳細（関連情報を展開）",
+        "operationId": "getItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "情報",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見つからない"
+          }
+        }
+      }
+    },
+    "/v1/sources": {
+      "get": {
+        "summary": "確認している情報源",
+        "operationId": "listSources",
+        "responses": {
+          "200": {
+            "description": "情報源一覧"
+          }
+        }
+      }
+    },
+    "/v1/stats/references": {
+      "get": {
+        "summary": "各情報がAPIで何回返されたか（うちAIからの回数）",
+        "operationId": "referenceStats",
+        "responses": {
+          "200": {
+            "description": "参照数"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "required": [
+          "id",
+          "section",
+          "title",
+          "url",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "abstract": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "元ページ本文を読んで書いた100字以内の要約。日時・場所・対象・費用・申込状況を優先。正式な情報は url を参照"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "受付中",
+              "受付前",
+              "受付終了",
+              "申込不要",
+              "お知らせ"
+            ]
+          },
+          "event_dates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updated": {
+            "type": "string",
+            "format": "date"
+          },
+          "region": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "audience": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "related": {
+            "type": "array",
+            "items": {}
+          },
+          "sponsored": {
+            "type": "boolean"
+          },
+          "verified_body": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date",
+            "description": "本文を確認した日"
+          }
+        }
+      }
+    }
+  }
+}
