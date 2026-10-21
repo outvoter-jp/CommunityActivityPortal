@@ -53,6 +53,9 @@ ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;g
 .status.new{color:#fff;background:var(--fern)}
 .status.closed{color:var(--closed);background:var(--closed-bg)}.status.info,.status.free{color:var(--info);background:var(--info-bg)}
 .item h3{font-size:1.05rem;margin:0;line-height:1.5;text-wrap:balance}
+/* 見出しは文節の区切りで折り返す（Chrome・Edge 119以降。ほかのブラウザは従来どおり） */
+.site-name,.item-title,h2,.item h3{word-break:auto-phrase}
+.site-name .phrase{display:inline-block}
 .item h3 a{color:var(--ink);text-decoration:none}.item h3 a:hover,.item h3 a:focus-visible{color:var(--fern);text-decoration:underline}
 .abstract{margin:0;overflow-wrap:anywhere}
 .tags{display:flex;flex-wrap:wrap;gap:.35rem;font-size:.8rem}
@@ -85,9 +88,15 @@ def page(title, body, rel="", extra_head="", fragment=False):
             f'<body>{body}</body></html>')
 
 
+def site_name_html():
+    """サイト名を「、」の後ろで区切り、句の途中では改行しないようにする"""
+    parts = SITE_NAME.replace("、", "、\n").split("\n")
+    return "".join(f'<span class="phrase">{e(x)}</span>' for x in parts)
+
+
 def header(rel):
     links = "".join(f'<a href="{rel}index.html#{slug}">{e(name)}</a>' for name, slug in SECTIONS.items())
-    return (f'<header class="site"><a class="site-name" href="{rel}index.html">{e(SITE_NAME)}</a>'
+    return (f'<header class="site"><a class="site-name" href="{rel}index.html">{site_name_html()}</a>'
             f'<p class="lead">【試作版】蕨市・川口市の地域活動と、法人・団体づくりの情報を毎朝確認して載せています。</p>'
             f'<nav class="sections" aria-label="区分">{links}<a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
 
