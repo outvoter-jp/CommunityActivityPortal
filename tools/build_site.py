@@ -13,6 +13,7 @@ import html
 import json
 import shutil
 import sys
+from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -28,7 +29,7 @@ STATUS_CLASS = {"受付中": "open", "受付前": "soon", "申込不要": "free"
 CSS = """
 :root{--paper:#f6f8f4;--ink:#1d2a22;--muted:#56645b;--line:#d8e0d6;--fern:#2f6b3f;--fern-soft:#e3eee2;
 --open:#1f6b45;--open-bg:#dcefe3;--soon:#7a5a00;--soon-bg:#f6ecc9;--closed:#5d6660;--closed-bg:#e7ebe7;--info:#2b4f7a;--info-bg:#e0e9f5;
---body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",sans-serif;--display:"Zen Old Mincho","Hiragino Mincho ProN","Noto Serif JP",serif}
+--body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",sans-serif;--display:"Zen Old Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;--hand:"Yusei Magic","Klee One",cursive}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141a16;--ink:#e6ece6;--muted:#a3b0a6;--line:#2c3830;--fern:#8fc79b;--fern-soft:#1f2c23;
 --open:#9ad8b2;--open-bg:#1d3427;--soon:#e6c770;--soon-bg:#3a3117;--closed:#a9b2ab;--closed-bg:#262d28;--info:#a9c5ec;--info-bg:#1e2a3a;color-scheme:dark}}
 :root[data-theme="dark"]{--paper:#141a16;--ink:#e6ece6;--muted:#a3b0a6;--line:#2c3830;--fern:#8fc79b;--fern-soft:#1f2c23;
@@ -36,7 +37,8 @@ CSS = """
 body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.75;margin:0}
 .wrap{max-width:46rem;margin:0 auto;padding-block:1.5rem 3rem;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header.site{display:flex;flex-direction:column;gap:.25rem;border-bottom:2px solid var(--fern);padding-bottom:1rem;margin-bottom:1.25rem}
-.site-name{font-family:var(--display);font-size:1.6rem;font-weight:600;line-height:1.3;text-wrap:balance;color:var(--ink);text-decoration:none}
+.site-name{font-family:var(--hand);font-size:2rem;font-weight:400;line-height:1.3;letter-spacing:.02em;text-wrap:balance;color:var(--fern);text-decoration:none}
+.item-title{font-family:var(--display);font-size:1.4rem;font-weight:600;line-height:1.4;text-wrap:balance}
 .lead{color:var(--muted);font-size:.95rem;margin:0}
 nav.sections{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0 0}
 nav.sections a,.chip-link{font-size:.9rem;padding:.25rem .75rem;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;background:var(--paper)}
@@ -63,7 +65,9 @@ code{font-size:.85em;background:var(--fern-soft);padding:0 .3rem;border-radius:3
 """
 
 HEAD_LINKS = ('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-              '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Old+Mincho:wght@600&display=swap">')
+              '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Old+Mincho:wght@600&display=swap">'
+              # サイト名だけに使う手書き風フォント。使う文字だけ読み込む
+              f'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap&text={quote(SITE_NAME)}">')
 
 e = html.escape
 
@@ -141,7 +145,7 @@ def detail(i, by_id, base):
     facts = "".join(f"<dt>{k}</dt><dd>{e(str(v))}</dd>" for k, v in rows if v)
     related = [by_id[r] for r in i.get("related", []) if r in by_id]
     rel_html = (f'<h2>関連する情報</h2><ul class="items">{"".join(card(r, rel) for r in related)}</ul>' if related else "")
-    body = (f'<div class="wrap">{header(rel)}<article><h1 class="site-name" style="font-size:1.4rem">{e(i["title"])}</h1>'
+    body = (f'<div class="wrap">{header(rel)}<article><h1 class="item-title">{e(i["title"])}</h1>'
             f'<p class="abstract">{e(i.get("abstract", ""))}</p><dl class="facts">{facts}</dl>'
             f'<p><a href="{e(i["url"])}" target="_blank" rel="noopener">{"広報誌の該当ページ（PDF）を開く" if i.get("publication") else "元のページを開く"}（正式な情報はこちら）</a></p>'
             f'<p class="note">この要約は元ページを読んで作成したものです。日時や申込方法は必ず元のページでご確認ください。'
