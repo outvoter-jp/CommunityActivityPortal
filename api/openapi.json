@@ -182,6 +182,11 @@
           "id": {
             "type": "string"
           },
+          "posted": {
+            "type": "string",
+            "format": "date",
+            "description": "このサイトに掲載した日（id の先頭）。新着かどうかはこの日付で判断する"
+          },
           "section": {
             "type": "string"
           },

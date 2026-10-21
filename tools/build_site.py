@@ -13,6 +13,7 @@ import html
 import json
 import shutil
 import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -20,6 +21,8 @@ SITE_NAME = "わたしらしく、地域とつながる。"
 SECTIONS = {"地域活動者向け": "community", "法人・団体づくり": "organizing"}
 REGIONS = {"蕨市": "warabi", "川口市": "kawaguchi", "埼玉県": "saitama", "全国": "national"}
 STATUS_ORDER = {"受付中": 0, "受付前": 1, "申込不要": 2, "お知らせ": 3, "受付終了": 4}
+NEW_DAYS = 3  # 掲載日を含めて何日間「新着」を付けるか
+TODAY = datetime.now(timezone(timedelta(hours=9))).date()
 STATUS_CLASS = {"受付中": "open", "受付前": "soon", "申込不要": "free", "お知らせ": "info", "受付終了": "closed"}
 
 CSS = """
@@ -45,6 +48,7 @@ ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;g
 .meta{display:flex;flex-wrap:wrap;gap:.4rem .75rem;align-items:center;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .status{font-size:.8rem;font-weight:700;padding:.05rem .55rem;border-radius:4px;letter-spacing:.04em}
 .status.open{color:var(--open);background:var(--open-bg)}.status.soon{color:var(--soon);background:var(--soon-bg)}
+.status.new{color:#fff;background:var(--fern)}
 .status.closed{color:var(--closed);background:var(--closed-bg)}.status.info,.status.free{color:var(--info);background:var(--info-bg)}
 .item h3{font-size:1.05rem;margin:0;line-height:1.5;text-wrap:balance}
 .item h3 a{color:var(--ink);text-decoration:none}.item h3 a:hover,.item h3 a:focus-visible{color:var(--fern);text-decoration:underline}
@@ -88,9 +92,19 @@ def fmt_dates(i):
     return "・".join(f"{int(d[5:7])}/{int(d[8:])}" for d in i.get("event_dates", []))
 
 
+def posted(i):
+    """掲載日。id の先頭（YYYY-MM-DD）がその情報をサイトに載せた日"""
+    return i["id"][:10]
+
+
+def is_new(i):
+    return (TODAY - date.fromisoformat(posted(i))).days < NEW_DAYS
+
+
 def card(i, rel):
     st = i.get("status", "")
-    meta = [f'<span class="status {STATUS_CLASS.get(st, "info")}">{e(st)}</span>', f'<span>{e(i.get("region", ""))}</span>']
+    meta = ['<span class="status new">新着</span>'] if is_new(i) else []
+    meta += [f'<span class="status {STATUS_CLASS.get(st, "info")}">{e(st)}</span>', f'<span>{e(i.get("region", ""))}</span>']
     if fmt_dates(i):
         meta.append(f'<span>開催 {fmt_dates(i)}</span>')
     if i.get("deadline") and st in ("受付中", "受付前"):
@@ -119,7 +133,7 @@ def json_ld(i, base):
 def detail(i, by_id, base):
     rel = "../"
     rows = [("区分", i.get("section")), ("状況", i.get("status")), ("地域", i.get("region")), ("分類", i.get("category")),
-            ("開催日", fmt_dates(i)), ("申込締切", i.get("deadline")), ("元ページの更新日", i.get("updated")),
+            ("開催日", fmt_dates(i)), ("申込締切", i.get("deadline")), ("掲載日", posted(i)), ("元ページの更新日", i.get("updated")),
             ("本文の確認日", i.get("checked_at")),
             ("掲載誌", (f'{i["publication"]} {i["page"]}ページ' if i.get("page") else i["publication"]) if i.get("publication") else None),
             ("定員", f'{i["capacity"]}人' if i.get("capacity") else None),
@@ -158,6 +172,8 @@ def write(path, text):
 
 def build(out, base, preview):
     items = [json.loads(l) for l in (ROOT / "items.jsonl").open(encoding="utf-8") if l.strip()]
+    for i in items:
+        i.setdefault("posted", posted(i))
     sources = json.loads((ROOT / "sources.json").read_text(encoding="utf-8"))
     by_id = {i["id"]: i for i in items}
     if out.exists():
