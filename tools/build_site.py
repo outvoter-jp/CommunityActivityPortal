@@ -26,6 +26,8 @@ NEW_DAYS = 3  # 掲載日を含めて何日間「新着」を付けるか
 TODAY = datetime.now(timezone(timedelta(hours=9))).date()
 URGENT_DAYS = 7  # 締切まで何日以内なら「あとN日」を出すか
 AUDIENCES = ["誰でも", "退職者", "高齢者", "若者", "外国人", "子育て世代", "地域団体", "法人設立希望者", "法人運営者"]
+AUDIENCE_SLUGS = {"誰でも": "everyone", "退職者": "retirees", "高齢者": "seniors", "若者": "youth", "外国人": "foreigners",
+                  "子育て世代": "parents", "地域団体": "local-groups", "法人設立希望者": "founders", "法人運営者": "org-managers"}
 STATUS_CLASS = {"受付中": "open", "受付前": "soon", "申込不要": "free", "お知らせ": "info", "受付終了": "closed"}
 
 CSS = """
@@ -105,7 +107,7 @@ def header(rel):
     links = "".join(f'<a href="{rel}index.html#{slug}">{e(name)}</a>' for name, slug in SECTIONS.items())
     return (f'<header class="site"><a class="site-name" href="{rel}index.html">{site_name_html()}</a>'
             f'<p class="lead">【試作版】蕨市・川口市の地域活動と、法人・団体づくりの情報を毎朝確認して載せています。</p>'
-            f'<nav class="sections" aria-label="区分">{links}<a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
+            f'<nav class="sections" aria-label="区分">{links}<a href="{rel}calendar.html">カレンダー配信（試作）</a><a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
 
 
 def fmt_dates(i):
@@ -215,6 +217,54 @@ def index(items, fragment):
     return page(SITE_NAME, "".join(parts), "", "", fragment)
 
 
+def ics_text(v):
+    return v.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+
+
+def ics_fold(line):
+    """iCalendar の1行75バイト制限に合わせて折り返す（UTF-8の文字の途中では切らない）"""
+    out, cur = [], ""
+    for ch in line:
+        if len((cur + ch).encode()) > (75 if not out else 74):
+            out.append(cur)
+            cur = ""
+        cur += ch
+    out.append(cur)
+    return "\r\n ".join(out)
+
+
+def ics(items, name, base):
+    """開催日のある件を終日の予定として並べた iCalendar を作る。複数日の催しは日ごとに1件"""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    host = base.split("//")[-1].split("/")[0] if base else "localhost"
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//watashirashiku//portal//JA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+             f"X-WR-CALNAME:{ics_text(name)}", "X-WR-TIMEZONE:Asia/Tokyo", "REFRESH-INTERVAL;VALUE=DURATION:PT12H"]
+    for i in items:
+        page_url = f"{base}/items/{i['id']}.html" if base else i["url"]
+        for d in i.get("event_dates", []):
+            day = date.fromisoformat(d)
+            desc = f"{i.get('abstract', '')}\n状況：{i.get('status', '')}（{i.get('checked_at', '')}確認）\n詳しく：{page_url}\n元のページ：{i['url']}\n時刻や申込方法は必ず元のページで確認してください。"
+            lines += ["BEGIN:VEVENT", f"UID:{i['id']}-{d}@{host}", f"DTSTAMP:{stamp}",
+                      f"DTSTART;VALUE=DATE:{day:%Y%m%d}", f"DTEND;VALUE=DATE:{day + timedelta(days=1):%Y%m%d}",
+                      f"SUMMARY:{ics_text(i['title'])}（{ics_text(i.get('region', ''))}）", f"DESCRIPTION:{ics_text(desc)}",
+                      f"URL:{page_url}", "TRANSP:TRANSPARENT", "END:VEVENT"]
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(ics_fold(l) for l in lines) + "\r\n"
+
+
+def calendar_page(feeds, base):
+    rows = "".join(f'<li><b>{e(label)}</b>（{n}件）<br><code>{e((base or ".") + "/" + path)}</code></li>' for label, path, n in feeds)
+    body = (f'<div class="wrap">{header("")}<article><h1 class="item-title">カレンダー配信（試作）</h1>'
+            '<p>下のURLをカレンダーアプリに登録すると、このサイトに載った催しが予定表に自動で入ります。新しい催しも、サイトの更新に合わせて増えていきます。</p>'
+            '<h2>Googleカレンダーでの登録方法</h2><ol><li>パソコンのブラウザで Googleカレンダーを開く</li>'
+            '<li>左の「他のカレンダー」の「＋」から「URLで追加」を選ぶ</li><li>下のURLを貼り付けて「カレンダーを追加」</li></ol>'
+            '<p class="lead">スマホのGoogleカレンダーアプリからはURLで追加できません。一度パソコンで登録すれば、スマホにも表示されます。iPhoneの標準カレンダーは「設定」の「照会するカレンダーを追加」から登録できます。</p>'
+            f'<h2>配信URL</h2><ul>{rows}</ul>'
+            '<p class="note">予定はすべて終日の扱いです。時刻・場所・申込方法は、予定のメモにある元のページで必ず確認してください。'
+            'Googleカレンダーへの反映は、サイトの更新から数時間〜1日ほど遅れることがあります。</p></article></div>')
+    return page(f"カレンダー配信｜{SITE_NAME}", body)
+
+
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -256,6 +306,16 @@ def build(out, base, preview):
     spec["servers"] = [{"url": base or "/"}]
     spec["info"]["description"] += " 静的サイト版では /api/v1/items.json・/api/v1/sections/{slug}.json・/api/v1/regions/{slug}.json・/api/v1/items/{id}.json を提供（検索パラメータは動的API版のみ）。"
     write(out / "openapi.json", dump(spec))
+    cal_items = [i for i in items if i.get("event_dates")]
+    feeds = [("すべての催し", "calendar.ics", len(cal_items))]
+    write(out / "calendar.ics", ics(cal_items, SITE_NAME, base))
+    for a in AUDIENCES:
+        rows = [i for i in cal_items if a in i.get("audience", [])]
+        if rows:
+            path = f"calendar/{AUDIENCE_SLUGS[a]}.ics"
+            write(out / path, ics(rows, f"{SITE_NAME}（{a}）", base))
+            feeds.append((f"{a}向け", path, len(rows)))
+    write(out / "calendar.html", calendar_page(feeds, base))
     write(out / "robots.txt", "User-agent: *\nAllow: /\n" + (f"Sitemap: {base}/sitemap.xml\n" if base else ""))
     if base:
         urls = [f"{base}/"] + [f"{base}/items/{i['id']}.html" for i in items]
