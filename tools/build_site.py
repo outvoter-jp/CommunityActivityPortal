@@ -24,16 +24,18 @@ REGIONS = {"蕨市": "warabi", "川口市": "kawaguchi", "埼玉県": "saitama",
 STATUS_ORDER = {"受付中": 0, "受付前": 1, "申込不要": 2, "お知らせ": 3, "受付終了": 4}
 NEW_DAYS = 3  # 掲載日を含めて何日間「新着」を付けるか
 TODAY = datetime.now(timezone(timedelta(hours=9))).date()
+URGENT_DAYS = 7  # 締切まで何日以内なら「あとN日」を出すか
+AUDIENCES = ["誰でも", "退職者", "高齢者", "若者", "外国人", "子育て世代", "地域団体", "法人設立希望者", "法人運営者"]
 STATUS_CLASS = {"受付中": "open", "受付前": "soon", "申込不要": "free", "お知らせ": "info", "受付終了": "closed"}
 
 CSS = """
 :root{--paper:#f6f8f4;--ink:#1d2a22;--muted:#56645b;--line:#d8e0d6;--fern:#2f6b3f;--fern-soft:#e3eee2;
---open:#1f6b45;--open-bg:#dcefe3;--soon:#7a5a00;--soon-bg:#f6ecc9;--closed:#5d6660;--closed-bg:#e7ebe7;--info:#2b4f7a;--info-bg:#e0e9f5;
+--open:#1f6b45;--open-bg:#dcefe3;--soon:#7a5a00;--soon-bg:#f6ecc9;--closed:#5d6660;--closed-bg:#e7ebe7;--info:#2b4f7a;--info-bg:#e0e9f5;--urgent:#9b2c2c;--urgent-bg:#f8e1df;
 --body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",sans-serif;--display:"Zen Old Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;--hand:"Yusei Magic","Klee One",cursive}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141a16;--ink:#e6ece6;--muted:#a3b0a6;--line:#2c3830;--fern:#8fc79b;--fern-soft:#1f2c23;
---open:#9ad8b2;--open-bg:#1d3427;--soon:#e6c770;--soon-bg:#3a3117;--closed:#a9b2ab;--closed-bg:#262d28;--info:#a9c5ec;--info-bg:#1e2a3a;color-scheme:dark}}
+--open:#9ad8b2;--open-bg:#1d3427;--soon:#e6c770;--soon-bg:#3a3117;--closed:#a9b2ab;--closed-bg:#262d28;--info:#a9c5ec;--info-bg:#1e2a3a;--urgent:#f2a7a0;--urgent-bg:#3d2220;color-scheme:dark}}
 :root[data-theme="dark"]{--paper:#141a16;--ink:#e6ece6;--muted:#a3b0a6;--line:#2c3830;--fern:#8fc79b;--fern-soft:#1f2c23;
---open:#9ad8b2;--open-bg:#1d3427;--soon:#e6c770;--soon-bg:#3a3117;--closed:#a9b2ab;--closed-bg:#262d28;--info:#a9c5ec;--info-bg:#1e2a3a;color-scheme:dark}
+--open:#9ad8b2;--open-bg:#1d3427;--soon:#e6c770;--soon-bg:#3a3117;--closed:#a9b2ab;--closed-bg:#262d28;--info:#a9c5ec;--info-bg:#1e2a3a;--urgent:#f2a7a0;--urgent-bg:#3d2220;color-scheme:dark}
 body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.75;margin:0}
 .wrap{max-width:46rem;margin:0 auto;padding-block:1.5rem 3rem;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header.site{display:flex;flex-direction:column;gap:.25rem;border-bottom:2px solid var(--fern);padding-bottom:1rem;margin-bottom:1.25rem}
@@ -47,10 +49,11 @@ h2{font-family:var(--display);font-size:1.25rem;font-weight:600;margin:2rem 0 .7
 ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.75rem}
 .item{display:flex;flex-direction:column;gap:.35rem;padding:.9rem 1rem;border:1px solid var(--line);border-radius:6px;background:var(--paper);min-width:0}
 .item.is-closed{opacity:.82}
+.item[hidden]{display:none}
 .meta{display:flex;flex-wrap:wrap;gap:.4rem .75rem;align-items:center;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .status{font-size:.8rem;font-weight:700;padding:.05rem .55rem;border-radius:4px;letter-spacing:.04em}
 .status.open{color:var(--open);background:var(--open-bg)}.status.soon{color:var(--soon);background:var(--soon-bg)}
-.status.new{color:#fff;background:var(--fern)}
+.status.new{color:#fff;background:var(--fern)}.status.urgent{color:var(--urgent);background:var(--urgent-bg)}
 .status.closed{color:var(--closed);background:var(--closed-bg)}.status.info,.status.free{color:var(--info);background:var(--info-bg)}
 .item h3{font-size:1.05rem;margin:0;line-height:1.5;text-wrap:balance}
 /* 見出しは文節の区切りで折り返す（Chrome・Edge 119以降。ほかのブラウザは従来どおり） */
@@ -59,7 +62,11 @@ ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;g
 .item h3 a{color:var(--ink);text-decoration:none}.item h3 a:hover,.item h3 a:focus-visible{color:var(--fern);text-decoration:underline}
 .abstract{margin:0;overflow-wrap:anywhere}
 .tags{display:flex;flex-wrap:wrap;gap:.35rem;font-size:.8rem}
-.tags span{color:var(--fern);background:var(--fern-soft);padding:0 .5rem;border-radius:3px}
+.tags a{color:var(--fern);background:var(--fern-soft);padding:.1rem .55rem;border-radius:3px;text-decoration:none}
+.tags a:hover,.tags a:focus-visible,.tags a[aria-current]{background:var(--fern);color:var(--paper);outline:none}
+.audience-nav{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin:.75rem 0 0;font-size:.85rem;color:var(--muted)}
+.filter{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center;margin:0 0 .5rem;padding:.6rem .9rem;border-radius:6px;background:var(--fern-soft)}
+.filter[hidden]{display:none}
 a{color:var(--fern)}
 dl.facts{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1rem;margin:1rem 0;font-size:.95rem}
 dl.facts dt{color:var(--muted)}dl.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -114,6 +121,18 @@ def is_new(i):
     return (TODAY - date.fromisoformat(posted(i))).days < NEW_DAYS
 
 
+def days_left(i):
+    """申込中の件の締切までの日数。締切が無い・過ぎた・受付中でない場合は None"""
+    if i.get("status") not in ("受付中", "受付前") or not i.get("deadline"):
+        return None
+    n = (date.fromisoformat(i["deadline"]) - TODAY).days
+    return n if n >= 0 else None
+
+
+def tag_links(i, rel):
+    return "".join(f'<a class="tag" href="{rel}index.html?tag={quote(a)}" data-tag="{e(a)}">{e(a)}</a>' for a in i.get("audience", []))
+
+
 def card(i, rel):
     st = i.get("status", "")
     meta = ['<span class="status new">新着</span>'] if is_new(i) else []
@@ -122,13 +141,15 @@ def card(i, rel):
         meta.append(f'<span>開催 {fmt_dates(i)}</span>')
     if i.get("deadline") and st in ("受付中", "受付前"):
         meta.append(f'<span>締切 {int(i["deadline"][5:7])}/{int(i["deadline"][8:])}</span>')
+    n = days_left(i)
+    if n is not None and n <= URGENT_DAYS:
+        meta.insert(2 if is_new(i) else 1, f'<span class="status urgent">{"今日締切" if n == 0 else f"締切まであと{n}日"}</span>')
     if i.get("sponsored"):
         meta.append('<span class="status soon">PR</span>')
-    tags = "".join(f"<span>{e(a)}</span>" for a in i.get("audience", []))
     closed = " is-closed" if st == "受付終了" else ""
-    return (f'<li class="item{closed}"><div class="meta">{"".join(meta)}</div>'
+    return (f'<li class="item{closed}" data-tags="{e(" ".join(i.get("audience", [])))}"><div class="meta">{"".join(meta)}</div>'
             f'<h3><a href="{rel}items/{i["id"]}.html">{e(i["title"])}</a></h3>'
-            f'<p class="abstract">{e(i.get("abstract", ""))}</p><div class="tags">{tags}</div></li>')
+            f'<p class="abstract">{e(i.get("abstract", ""))}</p><div class="tags">{tag_links(i, rel)}</div></li>')
 
 
 def json_ld(i, base):
@@ -146,7 +167,7 @@ def json_ld(i, base):
 def detail(i, by_id, base):
     rel = "../"
     rows = [("区分", i.get("section")), ("状況", i.get("status")), ("地域", i.get("region")), ("分類", i.get("category")),
-            ("開催日", fmt_dates(i)), ("申込締切", i.get("deadline")), ("掲載日", posted(i)), ("元ページの更新日", i.get("updated")),
+            ("開催日", fmt_dates(i)), ("申込締切", f'{i["deadline"]}（あと{days_left(i)}日）' if days_left(i) is not None else i.get("deadline")), ("掲載日", posted(i)), ("元ページの更新日", i.get("updated")),
             ("本文の確認日", i.get("checked_at")),
             ("掲載誌", (f'{i["publication"]} {i["page"]}ページ' if i.get("page") else i["publication"]) if i.get("publication") else None),
             ("定員", f'{i["capacity"]}人' if i.get("capacity") else None),
@@ -164,17 +185,33 @@ def detail(i, by_id, base):
     return page(f"{i['title']}｜{SITE_NAME}", body, rel, ld)
 
 
+# ?tag=退職者 のようにタグが付いていたら、その対象の件だけを表示する
+FILTER_JS = """(()=>{const t=new URLSearchParams(location.search).get('tag');if(!t)return;
+const bar=document.getElementById('filter');let n=0;
+document.querySelectorAll('li.item').forEach(li=>{const ok=(li.dataset.tags||'').split(' ').includes(t);li.hidden=!ok;if(ok)n++});
+document.querySelectorAll('ul.items').forEach(ul=>{const h=ul.previousElementSibling;
+const s=h&&h.querySelector('.count');if(s)s.textContent=' '+ul.querySelectorAll('li.item:not([hidden])').length+'件'});
+bar.querySelector('b').textContent=t;bar.querySelector('.n').textContent=n;bar.hidden=false;
+document.querySelectorAll('a.tag').forEach(a=>{if(a.dataset.tag===t)a.setAttribute('aria-current','true')});})();"""
+
+
 def index(items, fragment):
-    parts = [f'<div class="wrap">{header("")}']
+    used = [a for a in AUDIENCES if any(a in i.get("audience", []) for i in items)]
+    chips = "".join(f'<a class="tag" href="index.html?tag={quote(a)}" data-tag="{e(a)}">{e(a)}</a>' for a in used)
+    parts = [f'<div class="wrap">{header("")}',
+             f'<nav class="audience-nav tags" aria-label="対象で絞り込み">対象で絞り込み：{chips}</nav>',
+             '<p id="filter" class="filter" role="status" hidden><span>「<b></b>」向けの情報を <span class="n"></span>件表示しています</span>'
+             '<a href="index.html">すべて表示に戻す</a></p>']
     for name, slug in SECTIONS.items():
         rows = sorted((i for i in items if i.get("section") == name),
                       key=lambda i: (STATUS_ORDER.get(i.get("status"), 9), (i.get("event_dates") or ["9999"])[0]))
-        parts.append(f'<h2 id="{slug}">{e(name)}<span class="lead" style="font-family:var(--body);font-size:.85rem"> {len(rows)}件</span></h2>')
+        parts.append(f'<h2 id="{slug}">{e(name)}<span class="lead count" style="font-family:var(--body);font-size:.85rem"> {len(rows)}件</span></h2>')
         parts.append(f'<ul class="items">{"".join(card(i, "") for i in rows)}</ul>')
     parts.append('<p class="note">情報は各自治体・団体の公開ページを毎朝確認し、要約を付けて掲載しています。'
                  '受付が終わった催しも、次回の参考として残しています。AIやプログラムからは '
                  '<a href="api/v1/items.json"><code>api/v1/items.json</code></a> と '
                  '<a href="openapi.json"><code>openapi.json</code></a> で同じ情報を取得できます。</p></div>')
+    parts.append(f'<script>{FILTER_JS}</script>')
     return page(SITE_NAME, "".join(parts), "", "", fragment)
 
 
