@@ -6,6 +6,8 @@
 - `items.jsonl`：1行1件の構造化データ。まとめ・APIすべての正本
 - `daily/YYYY-MM-DD.md`：人が読むその日のまとめ。`python3 tools/render_daily.py [日付]` で items.jsonl から自動生成する（手で書かない）
 - `api/server.py`・`api/openapi.json`：検索APIの試作（動的版）
+- `contacts.json`：健康・ケガ・体力の不安があるときの公的な相談先（つなぎ先）。電話番号は `checked_at` の日に `source_url` で確認したもの
+- `themes.json`：テーマ別の特集に並べる item の id。いまは「健康づくり」（特集ページ `health.html`）。毎朝の収集で、体操・ウォーキング・介護予防・救命講習などの件を見つけたら id を追記する（健康マージャンや将棋のような、名前に「健康」が付くだけの催しは入れない）
 - `tools/build_site.py`：items.jsonl から公開用の静的サイト（記事ページ、JSON-LD、静的API、llms.txt、robots.txt）を生成。`python3 tools/build_site.py 出力先 --base-url https://公開URL`
 
 ## 分類の考え方
@@ -47,6 +49,7 @@ cd api && python3 server.py 8000
 | `GET /v1/items?section=&region=&category=&audience=&status=&since=&q=` | 検索（更新日の新しい順）。`fields=summary` で題名・要約・状態・日程・URLだけを返す |
 | `GET /v1/items/{id}` | 1件の詳細。related を中身ごと展開 |
 | `GET /v1/sources` | 情報源の一覧 |
+| `api/v1/contacts.json`・`api/v1/themes/health.json` | 相談先と健康づくりの情報（静的サイト版のみ） |
 | `GET /v1/stats/references` | 各情報が何回返されたか、うちAIからが何回か |
 | `GET /openapi.json`・`GET /llms.txt` | AI向けの仕様と案内 |
 

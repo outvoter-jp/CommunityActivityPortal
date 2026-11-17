@@ -7,6 +7,8 @@
   index.html, items/<id>.html          人が読むページ（各記事に schema.org JSON-LD）
   api/v1/items.json, api/v1/items/<id>.json, api/v1/sources.json   静的API
   api/v1/sections/<slug>.json, api/v1/regions/<slug>.json        よく使う絞り込み
+  health.html                          特集「からだと地域活動」（考え方・相談先・健康づくりの催し）
+  api/v1/contacts.json, api/v1/themes/<slug>.json             相談先と、テーマ別の情報
   openapi.json, llms.txt, robots.txt, sitemap.xml
 """
 import html
@@ -16,6 +18,8 @@ import sys
 from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+import health_guide
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE_NAME = "わたしらしく、地域とつながる。"
@@ -73,6 +77,10 @@ a{color:var(--fern)}
 dl.facts{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1rem;margin:1rem 0;font-size:.95rem}
 dl.facts dt{color:var(--muted)}dl.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .note{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:1rem;margin-top:2rem}
+h3.group{font-size:1rem;margin:1.25rem 0 .5rem;color:var(--muted)}
+.item dl.facts{margin:.25rem 0;font-size:.9rem}
+a.tel{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tags a.theme{color:var(--info);background:var(--info-bg)}
 code{font-size:.85em;background:var(--fern-soft);padding:0 .3rem;border-radius:3px;overflow-wrap:anywhere}
 """
 
@@ -107,7 +115,7 @@ def header(rel):
     links = "".join(f'<a href="{rel}index.html#{slug}">{e(name)}</a>' for name, slug in SECTIONS.items())
     return (f'<header class="site"><a class="site-name" href="{rel}index.html">{site_name_html()}</a>'
             f'<p class="lead">【試作版】蕨市・川口市の地域活動と、法人・団体づくりの情報を毎朝確認して載せています。</p>'
-            f'<nav class="sections" aria-label="区分">{links}<a href="{rel}calendar.html">カレンダー配信（試作）</a><a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
+            f'<nav class="sections" aria-label="区分">{links}<a href="{rel}health.html">からだと地域活動</a><a href="{rel}calendar.html">カレンダー配信（試作）</a><a href="{rel}llms.txt">AI向けの案内</a></nav></header>')
 
 
 def fmt_dates(i):
@@ -132,7 +140,8 @@ def days_left(i):
 
 
 def tag_links(i, rel):
-    return "".join(f'<a class="tag" href="{rel}index.html?tag={quote(a)}" data-tag="{e(a)}">{e(a)}</a>' for a in i.get("audience", []))
+    tags = "".join(f'<a class="tag" href="{rel}index.html?tag={quote(a)}" data-tag="{e(a)}">{e(a)}</a>' for a in i.get("audience", []))
+    return tags + "".join(f'<a class="theme" href="{rel}{e(t["page"])}">{e(t["name"])}</a>' for t in i.get("_themes", []))
 
 
 def card(i, rel):
@@ -265,6 +274,11 @@ def calendar_page(feeds, base):
     return page(f"カレンダー配信｜{SITE_NAME}", body)
 
 
+def public(i):
+    """API に出す形。サイト生成用の内部項目（_ で始まる）を除く"""
+    return {k: (v if k != "related" else [public(r) if isinstance(r, dict) else r for r in v]) for k, v in i.items() if not k.startswith("_")}
+
+
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -275,6 +289,15 @@ def build(out, base, preview):
     for i in items:
         i.setdefault("posted", posted(i))
     sources = json.loads((ROOT / "sources.json").read_text(encoding="utf-8"))
+    themes = json.loads((ROOT / "themes.json").read_text(encoding="utf-8"))["themes"]
+    contacts = json.loads((ROOT / "contacts.json").read_text(encoding="utf-8"))
+    for t in themes:
+        for tid in t["items"]:
+            for i in items:
+                if i["id"] == tid:
+                    if t["name"] not in i.setdefault("themes", []):
+                        i["themes"].append(t["name"])
+                    i.setdefault("_themes", []).append(t)
     by_id = {i["id"]: i for i in items}
     if out.exists():
         shutil.rmtree(out)
@@ -284,20 +307,32 @@ def build(out, base, preview):
     for i in items:
         write(out / "items" / f"{i['id']}.html", detail(i, by_id, base))
         expanded = dict(i, related=[by_id[r] for r in i.get("related", []) if r in by_id])
-        write(out / "api/v1/items" / f"{i['id']}.json", dump(expanded))
-    write(out / "api/v1/items.json", dump({"count": len(items), "items": items}))
+        write(out / "api/v1/items" / f"{i['id']}.json", dump(public(expanded)))
+    write(out / "api/v1/items.json", dump({"count": len(items), "items": [public(i) for i in items]}))
     write(out / "api/v1/sources.json", dump(sources))
+    write(out / "api/v1/contacts.json", dump(contacts))
+    for t in themes:
+        rows = [i for i in items if t["name"] in i.get("themes", [])]
+        meta = {k: v for k, v in t.items() if k != "items"}
+        write(out / f"api/v1/themes/{t['slug']}.json", dump({**meta, "count": len(rows), "items": [public(i) for i in rows]}))
+    health = next(t for t in themes if t["slug"] == "health")
+    rows = sorted((i for i in items if health["name"] in i.get("themes", [])),
+                  key=lambda i: (STATUS_ORDER.get(i.get("status"), 9), (i.get("event_dates") or ["9999"])[0]))
+    write(out / "health.html", page(f"からだと地域活動｜{SITE_NAME}",
+                                    f'<div class="wrap">{header("")}{health_guide.body(contacts["contacts"], "".join(card(i, "") for i in rows))}</div>'))
     for name, slug in SECTIONS.items():
         rows = [i for i in items if i.get("section") == name]
-        write(out / f"api/v1/sections/{slug}.json", dump({"section": name, "count": len(rows), "items": rows}))
+        write(out / f"api/v1/sections/{slug}.json", dump({"section": name, "count": len(rows), "items": [public(i) for i in rows]}))
     for name, slug in REGIONS.items():
         rows = [i for i in items if i.get("region") == name]
         if rows:
-            write(out / f"api/v1/regions/{slug}.json", dump({"region": name, "count": len(rows), "items": rows}))
+            write(out / f"api/v1/regions/{slug}.json", dump({"region": name, "count": len(rows), "items": [public(i) for i in rows]}))
 
     llms = [f"# {SITE_NAME}", "", "> 試作版。蕨市・川口市の地域活動と、法人・団体づくりの情報。各件に本文を読んで書いた100字以内の要約、申込状況、開催日、出典URL、確認日を付けています。正式な情報は各件の出典URLを参照してください。", "",
             "## 機械で読む", "- [全件JSON](api/v1/items.json)", "- [地域活動者向け](api/v1/sections/community.json)",
-            "- [法人・団体づくり](api/v1/sections/organizing.json)", "- [OpenAPI仕様](openapi.json)", "- [情報源](api/v1/sources.json)", "",
+            "- [法人・団体づくり](api/v1/sections/organizing.json)", "- [OpenAPI仕様](openapi.json)", "- [情報源](api/v1/sources.json)",
+            "- [相談先（健康・ケガ・体力の不安）](api/v1/contacts.json)", "- [健康づくりの情報](api/v1/themes/health.json)", "",
+            "## 特集", "- [からだと地域活動](health.html): ケガや不調の予防・もしもの対処・復帰・休んでいる間の居場所の考え方と、埼玉県・川口市・蕨市の相談先。医療判断は含まない。", "",
             "## 掲載中の情報"]
     llms += [f"- [{i['title']}](items/{i['id']}.html): {i.get('abstract', '')}（{i.get('status', '')}）" for i in items]
     write(out / "llms.txt", "\n".join(llms) + "\n")
@@ -318,7 +353,7 @@ def build(out, base, preview):
     write(out / "calendar.html", calendar_page(feeds, base))
     write(out / "robots.txt", "User-agent: *\nAllow: /\n" + (f"Sitemap: {base}/sitemap.xml\n" if base else ""))
     if base:
-        urls = [f"{base}/"] + [f"{base}/items/{i['id']}.html" for i in items]
+        urls = [f"{base}/", f"{base}/health.html"] + [f"{base}/items/{i['id']}.html" for i in items]
         write(out / "sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
               + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>\n")
     return out
